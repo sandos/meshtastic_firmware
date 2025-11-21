@@ -32,7 +32,15 @@ bool loopCanSleep()
 {
     // turn off sleep only while connected via USB
     // return true;
+    // By default, keep existing behavior: prevent sleep while Serial is connected.
+    // Define `ALLOW_SERIAL_RADIO_SLEEP` at compile time to permit the Power FSM to
+    // put radios into internal sleep even when Serial is attached (useful for long
+    // duration measurements while keeping logging/console attached).
+#ifdef ALLOW_SERIAL_RADIO_SLEEP
+    return true;
+#else
     return !Serial; // the bool operator on the nrf52 serial class returns true if connected to a PC currently
+#endif
     // return !(TinyUSBDevice.mounted() && !TinyUSBDevice.suspended());
 }
 
