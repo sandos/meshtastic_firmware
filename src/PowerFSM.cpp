@@ -404,5 +404,7 @@ void PowerFSM_setup()
 #endif
 
     powerFSM.run_machine(); // run one iteration of the state machine, so we run our on enter tasks for the initial DARK state
+    LOG_INFO("Forcing notifyDeepSleep observers at startup");
+    notifyDeepSleep.notifyObservers(NULL);
 }
 #endif
