@@ -413,6 +413,7 @@ bool RadioInterface::init()
 
 int RadioInterface::notifyDeepSleepCb(void *unused)
 {
+    LOG_INFO("RadioInterface: notifyDeepSleepCb invoked, calling sleep()");
     sleep();
     return 0;
 }

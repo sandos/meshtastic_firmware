@@ -177,10 +177,14 @@ void initDeepSleep()
 
 bool doPreflightSleep()
 {
-    if (preflightSleep.notifyObservers(NULL) != 0)
+    int rv = preflightSleep.notifyObservers(NULL);
+    if (rv != 0) {
+        LOG_INFO("preflightSleep: vetoed (code=%d)", rv);
         return false; // vetoed
-    else
+    } else {
+        LOG_INFO("preflightSleep: OK");
         return true;
+    }
 }
 
 /// Tell devices we are going to sleep and wait for them to handle things
@@ -227,6 +231,7 @@ void doDeepSleep(uint32_t msecToWake, bool skipPreflight = false, bool skipSaveN
     if (!shouldLoraWake(msecToWake))
         notifyDeepSleep.notifyObservers(NULL);
 #else
+    LOG_INFO("notifyDeepSleep: notifying observers to enter radio sleep");
     notifyDeepSleep.notifyObservers(NULL);
 #endif
 
