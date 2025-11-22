@@ -30,6 +30,16 @@ class PowerFSMThread : public OSThread
         extern bool g_nodeInfoInitialSent;
         extern uint32_t g_nodeInfoFirstSendMs;
         static bool g_radioOnlySleepScheduledInThread = false;
+        static uint32_t lastRadioSleepDiagLog = 0;
+        uint32_t nowMs = millis();
+
+        // Periodic diagnostic logging so we can see condition values (every ~1s until scheduled)
+        if (!g_radioOnlySleepScheduledInThread && (int32_t)(nowMs - lastRadioSleepDiagLog) > 1000) {
+            LOG_DEBUG("RadioSleepCheck initSent=%d firstMs=%u now=%u active=%d scheduled=%d", g_nodeInfoInitialSent ? 1 : 0,
+                      g_nodeInfoFirstSendMs, nowMs, g_radioOnlySleepActive ? 1 : 0,
+                      g_radioOnlySleepScheduledInThread ? 1 : 0);
+            lastRadioSleepDiagLog = nowMs;
+        }
         
         if (!g_radioOnlySleepScheduledInThread && !g_radioOnlySleepActive && 
             g_nodeInfoInitialSent && g_nodeInfoFirstSendMs > 0) {
