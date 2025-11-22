@@ -25,8 +25,9 @@
 #endif
 
 // --- Radio-only sleep support (keep CPU awake, mimic SDS timing) ---
-bool g_radioOnlySleepActive = false;
-uint32_t g_radioOnlySleepEndMs = 0;
+// Globals now defined in mesh/RadioSleep.cpp so they exist even if PowerFSM is excluded.
+extern bool g_radioOnlySleepActive;
+extern uint32_t g_radioOnlySleepEndMs;
 
 // Fallback weak definitions for NodeInfo timing globals (overridden by strong defs in NodeInfoModule.cpp)
 extern bool g_nodeInfoInitialSent;        // declared in NodeInfoModule.h
