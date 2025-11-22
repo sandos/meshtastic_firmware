@@ -40,8 +40,7 @@ class NodeInfoModule : public ProtobufModule<meshtastic_User>, private concurren
     /** Does our periodic broadcast */
     virtual int32_t runOnce() override;
 
-    /** Returns true after the initial NodeInfo has been sent */
-    bool hasSentInitialNodeInfo();
+    
 
   private:
     uint32_t lastSentToMesh = 0; // Last time we sent our NodeInfo to the mesh
@@ -50,3 +49,6 @@ class NodeInfoModule : public ProtobufModule<meshtastic_User>, private concurren
 };
 
 extern NodeInfoModule *nodeInfoModule;
+
+// Global flag set to true after initial NodeInfo send
+extern bool g_nodeInfoInitialSent;

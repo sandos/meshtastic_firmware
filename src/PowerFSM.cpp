@@ -288,9 +288,9 @@ static void screenOnTimeoutLog()
              config.power.is_power_saving);
     // On platforms that don't perform the ESP32 light-sleep path (nRF52), request radio-only sleep here.
 #ifndef ARCH_ESP32
-    if (!nodeInfoModule || !nodeInfoModule->hasSentInitialNodeInfo()) {
+    if (!g_nodeInfoInitialSent) {
         // Delay radio-only sleep until after initial NodeInfo has been sent to avoid delaying first packet
-        LOG_INFO("Delaying radio-only sleep until initial NodeInfo is sent");
+        LOG_INFO("Delaying radio-only sleep until initial NodeInfo is sent (global flag false)");
         // Re-schedule a check a few seconds later
         powerFSM.add_timed_transition(&stateDARK, &stateDARK, 5 * 1000, NULL, "Postpone radio-only sleep");
         return;

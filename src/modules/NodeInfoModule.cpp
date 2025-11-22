@@ -10,6 +10,8 @@
 #include <Throttle.h>
 
 NodeInfoModule *nodeInfoModule;
+// Global flag set after initial NodeInfo send
+bool g_nodeInfoInitialSent = false;
 
 bool NodeInfoModule::handleReceivedProtobuf(const meshtastic_MeshPacket &mp, meshtastic_User *pptr)
 {
@@ -87,6 +89,7 @@ void NodeInfoModule::sendOurNodeInfo(NodeNum dest, bool wantReplies, uint8_t cha
 
         // Start the radio-only sleep interval after we've sent our first NodeInfo
         if (!initialNodeInfoSent) {
+            g_nodeInfoInitialSent = true;
 #ifndef ARCH_ESP32
             PowerFSM_enterRadioOnlySleep(Default::getConfiguredOrDefaultMs(config.power.sds_secs));
 #endif
@@ -144,10 +147,7 @@ NodeInfoModule::NodeInfoModule()
                                          // after we start (to give network time to setup)
 }
 
-bool NodeInfoModule::hasSentInitialNodeInfo()
-{
-    return initialNodeInfoSent;
-}
+
 
 int32_t NodeInfoModule::runOnce()
 {
