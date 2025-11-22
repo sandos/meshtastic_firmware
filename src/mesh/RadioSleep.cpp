@@ -5,3 +5,4 @@
 
 bool g_radioOnlySleepActive = false;
 uint32_t g_radioOnlySleepEndMs = 0;
+uint32_t g_lastRadioWakeMs = 0;  // Timestamp when radio-only sleep last ended

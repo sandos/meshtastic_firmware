@@ -10,6 +10,7 @@
 extern bool g_radioOnlySleepActive;
 extern bool g_nodeInfoInitialSent;
 extern uint32_t g_nodeInfoFirstSendMs;
+extern uint32_t g_lastRadioWakeMs;
 
 namespace concurrency
 {
@@ -29,27 +30,44 @@ class PowerFSMThread : public OSThread
         // Ensure radio-only sleep expiration is serviced frequently
         PowerFSM_serviceRadioOnlySleep();
 
-        // Check if we should schedule deferred radio-only sleep (after initial NodeInfo)
+        // Check if we should schedule radio-only sleep cycles
 #ifndef ARCH_ESP32
-        static bool g_radioOnlySleepScheduledInThread = false;
         static uint32_t lastRadioSleepDiagLog = 0;
         uint32_t nowMs = millis();
 
-        // Periodic diagnostic logging so we can see condition values (every ~1s until scheduled)
-        if (!g_radioOnlySleepScheduledInThread && (int32_t)(nowMs - lastRadioSleepDiagLog) > 1000) {
-            LOG_DEBUG("RadioSleepCheck initSent=%d firstMs=%u now=%u active=%d scheduled=%d", g_nodeInfoInitialSent ? 1 : 0,
-                      g_nodeInfoFirstSendMs, nowMs, g_radioOnlySleepActive ? 1 : 0,
-                      g_radioOnlySleepScheduledInThread ? 1 : 0);
+        // Periodic diagnostic logging (every ~1s when not sleeping)
+        if (!g_radioOnlySleepActive && (int32_t)(nowMs - lastRadioSleepDiagLog) > 1000) {
+            LOG_DEBUG("RadioSleepCheck initSent=%d firstMs=%u now=%u active=%d lastWake=%u", g_nodeInfoInitialSent ? 1 : 0,
+                      g_nodeInfoFirstSendMs, nowMs, g_radioOnlySleepActive ? 1 : 0, g_lastRadioWakeMs);
             lastRadioSleepDiagLog = nowMs;
         }
         
-        if (!g_radioOnlySleepScheduledInThread && !g_radioOnlySleepActive && 
-            g_nodeInfoInitialSent && g_nodeInfoFirstSendMs > 0) {
-            // Wait 1.5s after NodeInfo was queued to allow transmission to complete
-            if ((int32_t)(millis() - g_nodeInfoFirstSendMs) > 1500) {
-                LOG_INFO("PowerFSMThread: Starting deferred radio-only sleep after initial NodeInfo TX");
+        // Start radio-only sleep when:
+        // 1. Not currently sleeping
+        // 2. Initial NodeInfo has been sent (for first cycle only)
+        // 3. Sufficient time has passed since last wake (or this is the first cycle)
+        if (!g_radioOnlySleepActive) {
+            bool firstCycle = (g_lastRadioWakeMs == 0);
+            bool canStartSleep = false;
+            
+            if (firstCycle) {
+                // First cycle: wait for NodeInfo + 1.5s
+                if (g_nodeInfoInitialSent && g_nodeInfoFirstSendMs > 0 && 
+                    (int32_t)(nowMs - g_nodeInfoFirstSendMs) > 1500) {
+                    LOG_INFO("PowerFSMThread: Starting first radio-only sleep after initial NodeInfo TX");
+                    canStartSleep = true;
+                }
+            } else {
+                // Subsequent cycles: wait min_wake_secs after last wake
+                uint32_t minWakeMs = Default::getConfiguredOrDefaultMs(config.power.min_wake_secs, default_min_wake_secs);
+                if ((int32_t)(nowMs - g_lastRadioWakeMs) > (int32_t)minWakeMs) {
+                    LOG_INFO("PowerFSMThread: Starting radio-only sleep cycle (awake for %u ms)", nowMs - g_lastRadioWakeMs);
+                    canStartSleep = true;
+                }
+            }
+            
+            if (canStartSleep) {
                 PowerFSM_enterRadioOnlySleep(Default::getConfiguredOrDefaultMs(config.power.sds_secs));
-                g_radioOnlySleepScheduledInThread = true;
             }
         }
 #endif

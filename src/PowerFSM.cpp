@@ -29,6 +29,7 @@
 // Globals now defined in mesh/RadioSleep.cpp so they exist even if PowerFSM is excluded.
 extern bool g_radioOnlySleepActive;
 extern uint32_t g_radioOnlySleepEndMs;
+extern uint32_t g_lastRadioWakeMs;
 
 // Fallback weak definitions for NodeInfo timing globals (overridden by strong defs in NodeInfoModule.cpp)
 extern bool g_nodeInfoInitialSent;        // declared in NodeInfoModule.h
@@ -486,7 +487,8 @@ void PowerFSM_serviceRadioOnlySleep()
     serviceRadioOnlySleep();
     if (wasActive && !g_radioOnlySleepActive) {
         // Radio-only sleep just ended — notify listeners and restart radio receive
-        LOG_INFO("PowerFSM: notifyRadioWake observers");
+        g_lastRadioWakeMs = millis();  // Record wake timestamp for next cycle
+        LOG_INFO("PowerFSM: notifyRadioWake observers (wake at %u ms)", g_lastRadioWakeMs);
         notifyRadioWake.notifyObservers(NULL);
         
         // Radio wake is handled via observers (notifyRadioWake)
