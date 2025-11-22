@@ -208,6 +208,18 @@ static void powerEnter()
     }
 }
 
+static void serviceRadioOnlySleep()
+{
+    if (!g_radioOnlySleepActive)
+        return;
+    // Still within window?
+    if ((int32_t)(millis() - g_radioOnlySleepEndMs) < 0)
+        return;
+    // Window expired – allow radio to resume normal operations
+    g_radioOnlySleepActive = false;
+    LOG_INFO("Radio-only sleep ended");
+}
+
 static void powerIdle()
 {
     if (!isPowered()) {
@@ -265,17 +277,6 @@ static void enterRadioOnlySleep(uint32_t ms)
     notifyDeepSleep.notifyObservers(NULL);
 }
 
-static void serviceRadioOnlySleep()
-{
-    if (!g_radioOnlySleepActive)
-        return;
-    // Still within window?
-    if ((int32_t)(millis() - g_radioOnlySleepEndMs) < 0)
-        return;
-    // Window expired – allow radio to resume normal operations
-    g_radioOnlySleepActive = false;
-    LOG_INFO("Radio-only sleep ended");
-}
 
 // Logging callbacks for timed transitions — these do not change behavior, only emit helpful diagnostics
 static void screenOnTimeoutLog()
