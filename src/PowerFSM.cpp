@@ -24,8 +24,8 @@
 #endif
 
 // --- Radio-only sleep support (keep CPU awake, mimic SDS timing) ---
-static bool g_radioOnlySleepActive = false;
-static uint32_t g_radioOnlySleepEndMs = 0;
+bool g_radioOnlySleepActive = false;
+uint32_t g_radioOnlySleepEndMs = 0;
 
 
 #ifndef SLEEP_TIME

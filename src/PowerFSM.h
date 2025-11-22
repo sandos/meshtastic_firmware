@@ -48,4 +48,8 @@ extern Fsm powerFSM;
 extern State stateON, statePOWER, stateSERIAL, stateDARK;
 
 void PowerFSM_setup();
+
+// Radio-only sleep flag (used to suppress radio wake paths while CPU stays awake)
+extern bool g_radioOnlySleepActive;
+extern uint32_t g_radioOnlySleepEndMs;
 #endif
