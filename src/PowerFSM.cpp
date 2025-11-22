@@ -250,6 +250,11 @@ static void screenOnTimeoutLog()
 {
     LOG_INFO("TimedEvent: Screen-on timeout fired (screen_on_secs=%u, power_saving=%d)", config.display.screen_on_secs,
              config.power.is_power_saving);
+    // On platforms that don't perform the ESP32 light-sleep path (nRF52), request radio-only sleep here.
+#ifndef ARCH_ESP32
+    LOG_INFO("Non-ESP32 platform: forcing notifyDeepSleep to request radio-only sleep");
+    notifyDeepSleep.notifyObservers(NULL);
+#endif
 }
 
 static void minWakeTimeoutLog()
