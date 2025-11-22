@@ -182,6 +182,9 @@ class RadioLibInterface : public RadioInterface, protected concurrency::Notified
 
     virtual void onNotify(uint32_t notification) override;
 
+    /** Called when radio-only sleep ends so the radio can restart receive */
+    virtual int notifyRadioWakeCb(void *unused = NULL);
+
     /** start an immediate transmit
      *  This method is virtual so subclasses can hook as needed, subclasses should not call directly
      *  @return true if packet was sent

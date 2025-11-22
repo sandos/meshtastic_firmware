@@ -47,6 +47,27 @@ RadioLibInterface::RadioLibInterface(LockingArduinoHal *hal, RADIOLIB_PIN_TYPE c
 #endif
 }
 
+bool RadioLibInterface::init()
+{
+    bool res = RadioInterface::init();
+    // Observe radio-wake so we can restart receive when radio-only sleep ends
+    notifyRadioWakeObserver.observe(&notifyRadioWake);
+    return res;
+}
+
+int RadioLibInterface::notifyRadioWakeCb(void *unused)
+{
+    LOG_INFO("RadioLibInterface: notifyRadioWakeCb invoked, attempting to restart receive");
+    // Only restart receive if radio-only sleep is not active
+    extern bool g_radioOnlySleepActive;
+    if (!g_radioOnlySleepActive) {
+        startReceive();
+    } else {
+        LOG_DEBUG("RadioLibInterface: notifyRadioWakeCb called but radio-only sleep still active");
+    }
+    return 0;
+}
+
 #ifdef ARCH_ESP32
 // ESP32 doesn't use that flag
 #define YIELD_FROM_ISR(x) portYIELD_FROM_ISR()

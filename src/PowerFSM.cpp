@@ -19,6 +19,7 @@
 #include "sleep.h"
 #include "target_specific.h"
 #include "modules/NodeInfoModule.h"
+#include "mesh/RadioLibInterface.h"
 
 #if HAS_WIFI && !defined(ARCH_PORTDUINO) || defined(MESHTASTIC_EXCLUDE_WIFI)
 #include "mesh/wifi/WiFiAPClient.h"
@@ -488,12 +489,7 @@ void PowerFSM_serviceRadioOnlySleep()
         LOG_INFO("PowerFSM: notifyRadioWake observers");
         notifyRadioWake.notifyObservers(NULL);
         
-        // Restart radio receive after sleep
-        extern RadioInterface *rIf;
-        if (rIf) {
-            LOG_INFO("PowerFSM: restarting radio receive after radio-only sleep");
-            rIf->startReceive();
-        }
+        // Radio wake is handled via observers (notifyRadioWake)
     }
 }
 
