@@ -259,7 +259,13 @@ class RadioInterface
     void applyModemConfig();
 
     /// Return 0 if sleep is okay
-    int preflightSleepCb(void *unused = NULL) { return canSleep() ? 0 : 1; }
+    int preflightSleepCb(void *unused = NULL)
+    {
+        (void)unused;
+        bool ok = canSleep();
+        LOG_INFO("RadioInterface: preflightSleepCb -> canSleep()=%d", ok ? 1 : 0);
+        return ok ? 0 : 1;
+    }
 
     int notifyDeepSleepCb(void *unused = NULL);
 

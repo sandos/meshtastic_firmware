@@ -177,6 +177,7 @@ void initDeepSleep()
 
 bool doPreflightSleep()
 {
+    LOG_DEBUG("doPreflightSleep: invoking preflight observers");
     int rv = preflightSleep.notifyObservers(NULL);
     if (rv != 0) {
         LOG_INFO("preflightSleep: vetoed (code=%d)", rv);
