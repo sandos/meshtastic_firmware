@@ -246,16 +246,14 @@ static void bootEnter()
 }
 
 // Logging callbacks for timed transitions — these do not change behavior, only emit helpful diagnostics
-static void screenOnTimeoutLog(void *unused)
+static void screenOnTimeoutLog()
 {
-    (void)unused;
     LOG_INFO("TimedEvent: Screen-on timeout fired (screen_on_secs=%u, power_saving=%d)", config.display.screen_on_secs,
              config.power.is_power_saving);
 }
 
-static void minWakeTimeoutLog(void *unused)
+static void minWakeTimeoutLog()
 {
-    (void)unused;
     LOG_INFO("TimedEvent: Min wake timeout fired (min_wake_secs=%u)", config.power.min_wake_secs);
 }
 
