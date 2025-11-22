@@ -24,6 +24,24 @@ class PowerFSMThread : public OSThread
         // Ensure radio-only sleep expiration is serviced frequently
         PowerFSM_serviceRadioOnlySleep();
 
+        // Check if we should schedule deferred radio-only sleep (after initial NodeInfo)
+#ifndef ARCH_ESP32
+        extern bool g_radioOnlySleepActive;
+        extern bool g_nodeInfoInitialSent;
+        extern uint32_t g_nodeInfoFirstSendMs;
+        static bool g_radioOnlySleepScheduledInThread = false;
+        
+        if (!g_radioOnlySleepScheduledInThread && !g_radioOnlySleepActive && 
+            g_nodeInfoInitialSent && g_nodeInfoFirstSendMs > 0) {
+            // Wait 1.5s after NodeInfo was queued to allow transmission to complete
+            if ((int32_t)(millis() - g_nodeInfoFirstSendMs) > 1500) {
+                LOG_INFO("PowerFSMThread: Starting deferred radio-only sleep after initial NodeInfo TX");
+                PowerFSM_enterRadioOnlySleep(Default::getConfiguredOrDefaultMs(config.power.sds_secs));
+                g_radioOnlySleepScheduledInThread = true;
+            }
+        }
+#endif
+
         /// If we are in power state we force the CPU to wake every 10ms to check for serial characters (we don't yet wake
         /// cpu for serial rx - FIXME)
         const State *state = powerFSM.getState();

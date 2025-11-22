@@ -27,7 +27,6 @@
 // --- Radio-only sleep support (keep CPU awake, mimic SDS timing) ---
 bool g_radioOnlySleepActive = false;
 uint32_t g_radioOnlySleepEndMs = 0;
-static bool g_radioOnlySleepScheduled = false; // one-shot scheduling after initial NodeInfo
 
 
 #ifndef SLEEP_TIME
@@ -234,17 +233,6 @@ static void powerIdle()
         LOG_INFO("Loss of power in Powered");
         powerFSM.trigger(EVENT_POWER_DISCONNECTED);
     }
-    // Check for radio-only sleep expiration while powered
-    serviceRadioOnlySleep();
-
-    // Schedule radio-only sleep after initial NodeInfo (if not already scheduled) once TX likely finished
-    if (!g_radioOnlySleepScheduled && g_nodeInfoInitialSent && g_nodeInfoFirstSendMs && !g_radioOnlySleepActive) {
-        if ((int32_t)(millis() - g_nodeInfoFirstSendMs) > 1500) {
-            LOG_INFO("Scheduling radio-only sleep after initial NodeInfo (powered state)");
-            enterRadioOnlySleep(Default::getConfiguredOrDefaultMs(config.power.sds_secs));
-            g_radioOnlySleepScheduled = true;
-        }
-    }
 }
 
 static void powerExit()
@@ -267,16 +255,6 @@ static void onIdle()
     if (isPowered()) {
         // If we got here, we are in the wrong state - we should be in powered, let that state handle things
         powerFSM.trigger(EVENT_POWER_CONNECTED);
-    }
-    // Service radio-only sleep expiration in ON state
-    serviceRadioOnlySleep();
-
-    if (!g_radioOnlySleepScheduled && g_nodeInfoInitialSent && g_nodeInfoFirstSendMs && !g_radioOnlySleepActive) {
-        if ((int32_t)(millis() - g_nodeInfoFirstSendMs) > 1500) {
-            LOG_INFO("Scheduling radio-only sleep after initial NodeInfo (ON state)");
-            enterRadioOnlySleep(Default::getConfiguredOrDefaultMs(config.power.sds_secs));
-            g_radioOnlySleepScheduled = true;
-        }
     }
 }
 
@@ -304,14 +282,13 @@ static void screenOnTimeoutLog()
 {
     LOG_INFO("TimedEvent: Screen-on timeout fired (screen_on_secs=%u, power_saving=%d)", config.display.screen_on_secs,
              config.power.is_power_saving);
-    // On platforms that don't perform the ESP32 light-sleep path (nRF52), request radio-only sleep here.
+    // On platforms that don't perform the ESP32 light-sleep path (nRF52), radio-only sleep
+    // will be started by PowerFSMThread after initial NodeInfo transmission completes.
 #ifndef ARCH_ESP32
     if (!g_nodeInfoInitialSent) {
-        LOG_INFO("Initial NodeInfo not yet sent at screen timeout; will schedule sleep from idle later");
-    } else if (!g_radioOnlySleepScheduled && !g_radioOnlySleepActive) {
-        LOG_INFO("Screen timeout: initial NodeInfo already sent; scheduling radio-only sleep now");
-        enterRadioOnlySleep(Default::getConfiguredOrDefaultMs(config.power.sds_secs));
-        g_radioOnlySleepScheduled = true;
+        LOG_INFO("Delaying radio-only sleep until initial NodeInfo is sent (global flag false)");
+    } else if (!g_radioOnlySleepActive) {
+        LOG_INFO("Screen timeout: initial NodeInfo already sent; PowerFSMThread will schedule radio-only sleep");
     }
 #endif
 }
