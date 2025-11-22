@@ -21,6 +21,9 @@ class PowerFSMThread : public OSThread
 #if !MESHTASTIC_EXCLUDE_POWER_FSM
         powerFSM.run_machine();
 
+        // Ensure radio-only sleep expiration is serviced frequently
+        PowerFSM_serviceRadioOnlySleep();
+
         /// If we are in power state we force the CPU to wake every 10ms to check for serial characters (we don't yet wake
         /// cpu for serial rx - FIXME)
         const State *state = powerFSM.getState();

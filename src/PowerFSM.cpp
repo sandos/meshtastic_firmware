@@ -469,4 +469,10 @@ void PowerFSM_setup()
     LOG_INFO("Setting initial radio-only sleep interval at startup");
     enterRadioOnlySleep(Default::getConfiguredOrDefaultMs(config.power.sds_secs));
 }
+
+// Public wrapper so other modules/threads can drive expiration checking
+void PowerFSM_serviceRadioOnlySleep()
+{
+    serviceRadioOnlySleep();
+}
 #endif

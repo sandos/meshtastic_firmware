@@ -52,4 +52,7 @@ void PowerFSM_setup();
 // Radio-only sleep flag (used to suppress radio wake paths while CPU stays awake)
 extern bool g_radioOnlySleepActive;
 extern uint32_t g_radioOnlySleepEndMs;
+
+// Service radio-only sleep expiration from other threads
+void PowerFSM_serviceRadioOnlySleep();
 #endif
