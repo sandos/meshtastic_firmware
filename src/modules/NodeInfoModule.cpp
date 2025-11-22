@@ -12,6 +12,7 @@
 NodeInfoModule *nodeInfoModule;
 // Global flag set after initial NodeInfo send
 bool g_nodeInfoInitialSent = false;
+uint32_t g_nodeInfoFirstSendMs = 0;
 
 bool NodeInfoModule::handleReceivedProtobuf(const meshtastic_MeshPacket &mp, meshtastic_User *pptr)
 {
@@ -90,8 +91,9 @@ void NodeInfoModule::sendOurNodeInfo(NodeNum dest, bool wantReplies, uint8_t cha
         // Mark initial NodeInfo sent; PowerFSM will start radio-only sleep on a later timed check
         if (!initialNodeInfoSent) {
             g_nodeInfoInitialSent = true;
+            g_nodeInfoFirstSendMs = millis();
             initialNodeInfoSent = true;
-            LOG_INFO("Initial NodeInfo flagged as sent; postponing radio-only sleep start until FSM retry");
+            LOG_INFO("Initial NodeInfo flagged as sent at %u ms; idle will schedule radio-only sleep", g_nodeInfoFirstSendMs);
         }
 
         shorterTimeout = false;

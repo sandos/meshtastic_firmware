@@ -52,3 +52,5 @@ extern NodeInfoModule *nodeInfoModule;
 
 // Global flag set to true after initial NodeInfo send
 extern bool g_nodeInfoInitialSent;
+// Timestamp (millis) when initial NodeInfo was queued for send
+extern uint32_t g_nodeInfoFirstSendMs;
