@@ -55,4 +55,7 @@ extern uint32_t g_radioOnlySleepEndMs;
 
 // Service radio-only sleep expiration from other threads
 void PowerFSM_serviceRadioOnlySleep();
+
+// Trigger a radio-only sleep interval (keep CPU running)
+void PowerFSM_enterRadioOnlySleep(uint32_t ms);
 #endif

@@ -1,4 +1,5 @@
 #include "NodeInfoModule.h"
+#include "PowerFSM.h"
 #include "Default.h"
 #include "MeshService.h"
 #include "NodeDB.h"
@@ -83,6 +84,15 @@ void NodeInfoModule::sendOurNodeInfo(NodeNum dest, bool wantReplies, uint8_t cha
         prevPacketId = p->id;
 
         service->sendToMesh(p);
+
+        // Start the radio-only sleep interval after we've sent our first NodeInfo
+        if (!initialNodeInfoSent) {
+#ifndef ARCH_ESP32
+            PowerFSM_enterRadioOnlySleep(Default::getConfiguredOrDefaultMs(config.power.sds_secs));
+#endif
+            initialNodeInfoSent = true;
+        }
+
         shorterTimeout = false;
     }
 }

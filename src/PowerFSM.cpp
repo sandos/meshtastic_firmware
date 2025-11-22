@@ -466,8 +466,8 @@ void PowerFSM_setup()
 #endif
 
     powerFSM.run_machine(); // run one iteration of the state machine, so we run our on enter tasks for the initial DARK state
-    LOG_INFO("Setting initial radio-only sleep interval at startup");
-    enterRadioOnlySleep(Default::getConfiguredOrDefaultMs(config.power.sds_secs));
+    // Do NOT start radio-only sleep immediately at boot.  The NodeInfoModule will
+    // request radio-only sleep after it has sent the initial node info packet.
 }
 
 // Public wrapper so other modules/threads can drive expiration checking
@@ -480,5 +480,11 @@ void PowerFSM_serviceRadioOnlySleep()
         LOG_INFO("PowerFSM: notifyRadioWake observers");
         notifyRadioWake.notifyObservers(NULL);
     }
+}
+
+// Public wrapper to start a radio-only sleep interval from other modules
+void PowerFSM_enterRadioOnlySleep(uint32_t ms)
+{
+    enterRadioOnlySleep(ms);
 }
 #endif
