@@ -257,9 +257,8 @@ static void minWakeTimeoutLog()
     LOG_INFO("TimedEvent: Min wake timeout fired (min_wake_secs=%u)", config.power.min_wake_secs);
 }
 
-static void bluetoothTimeoutLog(void *unused)
+static void bluetoothTimeoutLog()
 {
-    (void)unused;
     LOG_INFO("TimedEvent: Bluetooth wait timeout fired (wait_bluetooth_secs=%u)", config.power.wait_bluetooth_secs);
 }
 
