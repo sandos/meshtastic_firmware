@@ -6,6 +6,11 @@
 #include "main.h"
 #include "power.h"
 
+// Forward declarations at global scope (used on non-ESP32 platforms)
+extern bool g_radioOnlySleepActive;
+extern bool g_nodeInfoInitialSent;
+extern uint32_t g_nodeInfoFirstSendMs;
+
 namespace concurrency
 {
 /// Wrapper to convert our powerFSM stuff into a 'thread'
@@ -26,9 +31,6 @@ class PowerFSMThread : public OSThread
 
         // Check if we should schedule deferred radio-only sleep (after initial NodeInfo)
 #ifndef ARCH_ESP32
-        extern bool g_radioOnlySleepActive;
-        extern bool g_nodeInfoInitialSent;
-        extern uint32_t g_nodeInfoFirstSendMs;
         static bool g_radioOnlySleepScheduledInThread = false;
         static uint32_t lastRadioSleepDiagLog = 0;
         uint32_t nowMs = millis();
