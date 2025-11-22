@@ -23,6 +23,11 @@
 #include "mesh/wifi/WiFiAPClient.h"
 #endif
 
+// --- Radio-only sleep support (keep CPU awake, mimic SDS timing) ---
+static bool g_radioOnlySleepActive = false;
+static uint32_t g_radioOnlySleepEndMs = 0;
+
+
 #ifndef SLEEP_TIME
 #define SLEEP_TIME 30
 #endif
@@ -261,9 +266,6 @@ static void bootEnter()
     LOG_DEBUG("State: BOOT");
 }
 
-// --- Radio-only sleep support (keep CPU awake, mimic SDS timing) ---
-static bool g_radioOnlySleepActive = false;
-static uint32_t g_radioOnlySleepEndMs = 0;
 
 static void enterRadioOnlySleep(uint32_t ms)
 {
