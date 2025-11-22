@@ -4,6 +4,7 @@
 #include "RadioLibRF95.h"
 #include "configuration.h"
 #include "error.h"
+#include "PowerFSM.h" // radio-only sleep flag
 
 #if ARCH_PORTDUINO
 #include "PortduinoGlue.h"
@@ -288,6 +289,11 @@ void RF95Interface::configHardwareForSend()
 
 void RF95Interface::startReceive()
 {
+    extern bool g_radioOnlySleepActive;
+    if (g_radioOnlySleepActive) {
+        LOG_DEBUG("Radio-only sleep active: suppress RF95 startReceive");
+        return;
+    }
     setTransmitEnable(false);
     setStandby();
     LOG_INFO("RF95: startReceive invoked, enabling receive mode");
@@ -304,6 +310,11 @@ void RF95Interface::startReceive()
 
 bool RF95Interface::isChannelActive()
 {
+    extern bool g_radioOnlySleepActive;
+    if (g_radioOnlySleepActive) {
+        LOG_DEBUG("Radio-only sleep active: channel assumed inactive");
+        return false;
+    }
     // check if we can detect a LoRa preamble on the current channel
     int16_t result;
     setTransmitEnable(false);

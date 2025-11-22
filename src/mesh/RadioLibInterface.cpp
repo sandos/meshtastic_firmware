@@ -8,6 +8,7 @@
 #include "error.h"
 #include "main.h"
 #include "mesh-pb-constants.h"
+#include "PowerFSM.h" // for radio-only sleep flag declaration
 #include <pb_decode.h>
 #include <pb_encode.h>
 
@@ -83,6 +84,12 @@ RadioLibInterface *RadioLibInterface::instance;
 /** Could we send right now (i.e. either not actively receiving or transmitting)? */
 bool RadioLibInterface::canSendImmediately()
 {
+    // Suppress sending if radio-only sleep active
+    extern bool g_radioOnlySleepActive; // defined in PowerFSM.cpp
+    if (g_radioOnlySleepActive) {
+        LOG_DEBUG("Radio-only sleep active: canSendImmediately false (forced)");
+        return false;
+    }
     // We wait _if_ we are partially though receiving a packet (rather than just merely waiting for one).
     // To do otherwise would be doubly bad because not only would we drop the packet that was on the way in,
     // we almost certainly guarantee no one outside will like the packet we are sending.
@@ -141,6 +148,12 @@ bool RadioLibInterface::receiveDetected(uint16_t irq, ulong syncWordHeaderValidF
 /// bluetooth comms code.  If the txmit queue is empty it might return an error
 ErrorCode RadioLibInterface::send(meshtastic_MeshPacket *p)
 {
+    extern bool g_radioOnlySleepActive;
+    if (g_radioOnlySleepActive) {
+        LOG_DEBUG("Radio-only sleep active: dropping outbound packet (id=0x%08x)", p->id);
+        packetPool.release(p);
+        return ERRNO_DISABLED;
+    }
 
 #ifndef DISABLE_WELCOME_UNSET
 
@@ -258,16 +271,37 @@ void RadioLibInterface::onNotify(uint32_t notification)
     switch (notification) {
     case ISR_TX:
         handleTransmitInterrupt();
-        startReceive();
+        {
+            extern bool g_radioOnlySleepActive;
+            if (!g_radioOnlySleepActive) {
+                startReceive();
+            } else {
+                LOG_DEBUG("Radio-only sleep active: skip startReceive after ISR_TX");
+            }
+        }
         setTransmitDelay();
         break;
     case ISR_RX:
         handleReceiveInterrupt();
-        startReceive();
+        {
+            extern bool g_radioOnlySleepActive;
+            if (!g_radioOnlySleepActive) {
+                startReceive();
+            } else {
+                LOG_DEBUG("Radio-only sleep active: skip startReceive after ISR_RX");
+            }
+        }
         setTransmitDelay();
         break;
     case TRANSMIT_DELAY_COMPLETED:
         LOG_INFO("RadioIf: TRANSMIT_DELAY_COMPLETED fired, checking TX queue and sleep state");
+        {
+            extern bool g_radioOnlySleepActive;
+            if (g_radioOnlySleepActive) {
+                LOG_DEBUG("Radio-only sleep active: suppress TX dequeue & receive restart");
+                return; // keep radio sleeping
+            }
+        }
 
         // If we are not currently in receive mode, then restart the random delay (this can happen if the main thread
         // has placed the unit into standby)  FIXME, how will this work if the chipset is in sleep mode?
@@ -535,6 +569,12 @@ void RadioLibInterface::setStandby()
 /** start an immediate transmit */
 bool RadioLibInterface::startSend(meshtastic_MeshPacket *txp)
 {
+    extern bool g_radioOnlySleepActive;
+    if (g_radioOnlySleepActive) {
+        LOG_DEBUG("Radio-only sleep active: dropping startSend (id=0x%08x)", txp->id);
+        packetPool.release(txp);
+        return false;
+    }
     /* NOTE: Minimize the actions before startTransmit() to keep the time between
              channel scan and actual transmit as low as possible to avoid collisions. */
     if (disabled || !config.lora.tx_enabled) {

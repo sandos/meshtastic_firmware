@@ -3,6 +3,7 @@
 #include "configuration.h"
 #include "error.h"
 #include "mesh/NodeDB.h"
+#include "PowerFSM.h" // radio-only sleep flag
 #ifdef ARCH_PORTDUINO
 #include "PortduinoGlue.h"
 #endif
@@ -287,6 +288,11 @@ template <typename T> void SX126xInterface<T>::startReceive()
 #ifdef SLEEP_ONLY
     sleep();
 #else
+    extern bool g_radioOnlySleepActive;
+    if (g_radioOnlySleepActive) {
+        LOG_DEBUG("Radio-only sleep active: suppress SX126x startReceive");
+        return;
+    }
 
     setTransmitEnable(false);
     setStandby();
@@ -309,6 +315,11 @@ template <typename T> void SX126xInterface<T>::startReceive()
 /** Is the channel currently active? */
 template <typename T> bool SX126xInterface<T>::isChannelActive()
 {
+    extern bool g_radioOnlySleepActive;
+    if (g_radioOnlySleepActive) {
+        LOG_DEBUG("Radio-only sleep active: channel assumed inactive");
+        return false;
+    }
     // check if we can detect a LoRa preamble on the current channel
     ChannelScanConfig_t cfg = {.cad = {.symNum = NUM_SYM_CAD,
                                        .detPeak = RADIOLIB_SX126X_CAD_PARAM_DEFAULT,

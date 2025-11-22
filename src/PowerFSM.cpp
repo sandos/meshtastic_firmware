@@ -215,6 +215,8 @@ static void powerIdle()
         LOG_INFO("Loss of power in Powered");
         powerFSM.trigger(EVENT_POWER_DISCONNECTED);
     }
+    // Check for radio-only sleep expiration while powered
+    serviceRadioOnlySleep();
 }
 
 static void powerExit()
@@ -238,11 +240,41 @@ static void onIdle()
         // If we got here, we are in the wrong state - we should be in powered, let that state handle things
         powerFSM.trigger(EVENT_POWER_CONNECTED);
     }
+    // Service radio-only sleep expiration in ON state
+    serviceRadioOnlySleep();
 }
 
 static void bootEnter()
 {
     LOG_DEBUG("State: BOOT");
+}
+
+// --- Radio-only sleep support (keep CPU awake, mimic SDS timing) ---
+static bool g_radioOnlySleepActive = false;
+static uint32_t g_radioOnlySleepEndMs = 0;
+
+static void enterRadioOnlySleep(uint32_t ms)
+{
+    if (ms == 0) {
+        return; // nothing to do
+    }
+    g_radioOnlySleepActive = true;
+    g_radioOnlySleepEndMs = millis() + ms;
+    LOG_INFO("Radio-only sleep begin for %u ms", ms);
+    // Reuse existing observer chain to put peripherals (radio) to sleep
+    notifyDeepSleep.notifyObservers(NULL);
+}
+
+static void serviceRadioOnlySleep()
+{
+    if (!g_radioOnlySleepActive)
+        return;
+    // Still within window?
+    if ((int32_t)(millis() - g_radioOnlySleepEndMs) < 0)
+        return;
+    // Window expired – allow radio to resume normal operations
+    g_radioOnlySleepActive = false;
+    LOG_INFO("Radio-only sleep ended");
 }
 
 // Logging callbacks for timed transitions — these do not change behavior, only emit helpful diagnostics
@@ -252,8 +284,8 @@ static void screenOnTimeoutLog()
              config.power.is_power_saving);
     // On platforms that don't perform the ESP32 light-sleep path (nRF52), request radio-only sleep here.
 #ifndef ARCH_ESP32
-    LOG_INFO("Non-ESP32 platform: forcing notifyDeepSleep to request radio-only sleep");
-    notifyDeepSleep.notifyObservers(NULL);
+    LOG_INFO("Non-ESP32 platform: starting radio-only sleep interval");
+    enterRadioOnlySleep(Default::getConfiguredOrDefaultMs(config.power.sds_secs));
 #endif
 }
 
@@ -429,7 +461,7 @@ void PowerFSM_setup()
 #endif
 
     powerFSM.run_machine(); // run one iteration of the state machine, so we run our on enter tasks for the initial DARK state
-    LOG_INFO("Forcing notifyDeepSleep observers at startup");
-    notifyDeepSleep.notifyObservers(NULL);
+    LOG_INFO("Setting initial radio-only sleep interval at startup");
+    enterRadioOnlySleep(Default::getConfiguredOrDefaultMs(config.power.sds_secs));
 }
 #endif
