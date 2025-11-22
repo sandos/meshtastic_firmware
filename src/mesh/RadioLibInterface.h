@@ -122,6 +122,8 @@ class RadioLibInterface : public RadioInterface, protected concurrency::Notified
     RadioLibInterface(LockingArduinoHal *hal, RADIOLIB_PIN_TYPE cs, RADIOLIB_PIN_TYPE irq, RADIOLIB_PIN_TYPE rst,
                       RADIOLIB_PIN_TYPE busy, PhysicalLayer *iface = NULL);
 
+    virtual bool init() override;
+
     virtual ErrorCode send(meshtastic_MeshPacket *p) override;
 
     /**
@@ -192,6 +194,9 @@ class RadioLibInterface : public RadioInterface, protected concurrency::Notified
     virtual bool startSend(meshtastic_MeshPacket *txp);
 
     meshtastic_QueueStatus getQueueStatus();
+
+    CallbackObserver<RadioLibInterface, void *> notifyRadioWakeObserver =
+      CallbackObserver<RadioLibInterface, void *>(this, &RadioLibInterface::notifyRadioWakeCb);
 
   protected:
     uint32_t activeReceiveStart = 0;
