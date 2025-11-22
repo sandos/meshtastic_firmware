@@ -484,9 +484,16 @@ void PowerFSM_serviceRadioOnlySleep()
     bool wasActive = g_radioOnlySleepActive;
     serviceRadioOnlySleep();
     if (wasActive && !g_radioOnlySleepActive) {
-        // Radio-only sleep just ended — notify listeners
+        // Radio-only sleep just ended — notify listeners and restart radio receive
         LOG_INFO("PowerFSM: notifyRadioWake observers");
         notifyRadioWake.notifyObservers(NULL);
+        
+        // Restart radio receive after sleep
+        extern RadioInterface *rIf;
+        if (rIf) {
+            LOG_INFO("PowerFSM: restarting radio receive after radio-only sleep");
+            rIf->startReceive();
+        }
     }
 }
 
