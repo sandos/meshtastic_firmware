@@ -320,6 +320,8 @@ void PowerFSM_setup()
     LOG_INFO("PowerFSM config: screen_on_secs=%u power_saving=%d min_wake_secs=%u wait_bluetooth_secs=%u",
              config.display.screen_on_secs, config.power.is_power_saving, config.power.min_wake_secs,
              config.power.wait_bluetooth_secs);
+    LOG_INFO("PowerFSM config: sds_secs=%u (ms=%u)", config.power.sds_secs,
+             Default::getConfiguredOrDefaultMs(config.power.sds_secs));
     powerFSM.add_timed_transition(&stateBOOT, hasPower ? &statePOWER : &stateON, 3 * 1000, NULL, "boot timeout");
 
     // wake timer expired or a packet arrived
