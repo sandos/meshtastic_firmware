@@ -245,6 +245,26 @@ static void bootEnter()
     LOG_DEBUG("State: BOOT");
 }
 
+// Logging callbacks for timed transitions — these do not change behavior, only emit helpful diagnostics
+static void screenOnTimeoutLog(void *unused)
+{
+    (void)unused;
+    LOG_INFO("TimedEvent: Screen-on timeout fired (screen_on_secs=%u, power_saving=%d)", config.display.screen_on_secs,
+             config.power.is_power_saving);
+}
+
+static void minWakeTimeoutLog(void *unused)
+{
+    (void)unused;
+    LOG_INFO("TimedEvent: Min wake timeout fired (min_wake_secs=%u)", config.power.min_wake_secs);
+}
+
+static void bluetoothTimeoutLog(void *unused)
+{
+    (void)unused;
+    LOG_INFO("TimedEvent: Bluetooth wait timeout fired (wait_bluetooth_secs=%u)", config.power.wait_bluetooth_secs);
+}
+
 State stateSHUTDOWN(shutdownEnter, NULL, NULL, "SHUTDOWN");
 State stateSDS(sdsEnter, NULL, NULL, "SDS");
 State stateLowBattSDS(lowBattSDSEnter, NULL, NULL, "SDS");
@@ -359,11 +379,11 @@ void PowerFSM_setup()
 #endif
     {
         powerFSM.add_timed_transition(&stateON, &stateDARK,
-                                      Default::getConfiguredOrDefaultMs(config.display.screen_on_secs, default_screen_on_secs),
-                                      NULL, "Screen-on timeout");
+                          Default::getConfiguredOrDefaultMs(config.display.screen_on_secs, default_screen_on_secs),
+                          screenOnTimeoutLog, "Screen-on timeout");
         powerFSM.add_timed_transition(&statePOWER, &stateDARK,
-                                      Default::getConfiguredOrDefaultMs(config.display.screen_on_secs, default_screen_on_secs),
-                                      NULL, "Screen-on timeout");
+                          Default::getConfiguredOrDefaultMs(config.display.screen_on_secs, default_screen_on_secs),
+                          screenOnTimeoutLog, "Screen-on timeout");
     }
 
 // We never enter light-sleep or NB states on NRF52 (because the CPU uses so little power normally)
@@ -377,17 +397,17 @@ void PowerFSM_setup()
                              config.device.role == meshtastic_Config_DeviceConfig_Role_TAK_TRACKER ||
                              config.device.role == meshtastic_Config_DeviceConfig_Role_SENSOR;
 
-    if ((isRouter || config.power.is_power_saving) && !isWifiAvailable() && !isTrackerOrSensor) {
+        if ((isRouter || config.power.is_power_saving) && !isWifiAvailable() && !isTrackerOrSensor) {
         powerFSM.add_timed_transition(&stateNB, &stateLS,
-                                      Default::getConfiguredOrDefaultMs(config.power.min_wake_secs, default_min_wake_secs), NULL,
-                                      "Min wake timeout");
+                                      Default::getConfiguredOrDefaultMs(config.power.min_wake_secs, default_min_wake_secs),
+                                      minWakeTimeoutLog, "Min wake timeout");
 
         // If ESP32 and using power-saving, timer mover from DARK to light-sleep
         // Also serves purpose of the old DARK to DARK transition(?) See https://github.com/meshtastic/firmware/issues/3517
         powerFSM.add_timed_transition(
             &stateDARK, &stateLS,
-            Default::getConfiguredOrDefaultMs(config.power.wait_bluetooth_secs, default_wait_bluetooth_secs), NULL,
-            "Bluetooth timeout");
+            Default::getConfiguredOrDefaultMs(config.power.wait_bluetooth_secs, default_wait_bluetooth_secs),
+            bluetoothTimeoutLog, "Bluetooth timeout");
     } else {
         // If ESP32, but not using power-saving, check periodically if config has drifted out of stateDark
         powerFSM.add_timed_transition(&stateDARK, &stateDARK,
