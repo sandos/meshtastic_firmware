@@ -473,6 +473,12 @@ void PowerFSM_setup()
 // Public wrapper so other modules/threads can drive expiration checking
 void PowerFSM_serviceRadioOnlySleep()
 {
+    bool wasActive = g_radioOnlySleepActive;
     serviceRadioOnlySleep();
+    if (wasActive && !g_radioOnlySleepActive) {
+        // Radio-only sleep just ended — notify listeners
+        LOG_INFO("PowerFSM: notifyRadioWake observers");
+        notifyRadioWake.notifyObservers(NULL);
+    }
 }
 #endif

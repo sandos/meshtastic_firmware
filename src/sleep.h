@@ -37,6 +37,9 @@ extern Observable<void *> preflightSleep;
 /// Called to tell observers we are now entering (deep) sleep and you should prepare.  Must return 0
 extern Observable<void *> notifyDeepSleep;
 
+/// Called to tell observers that radio-only sleep has ended (radio back online)
+extern Observable<void *> notifyRadioWake;
+
 /// Called to tell observers we are rebooting ASAP.  Must return 0
 extern Observable<void *> notifyReboot;
 
