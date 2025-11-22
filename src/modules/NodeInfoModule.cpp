@@ -87,13 +87,11 @@ void NodeInfoModule::sendOurNodeInfo(NodeNum dest, bool wantReplies, uint8_t cha
 
         service->sendToMesh(p);
 
-        // Start the radio-only sleep interval after we've sent our first NodeInfo
+        // Mark initial NodeInfo sent; PowerFSM will start radio-only sleep on a later timed check
         if (!initialNodeInfoSent) {
             g_nodeInfoInitialSent = true;
-#ifndef ARCH_ESP32
-            PowerFSM_enterRadioOnlySleep(Default::getConfiguredOrDefaultMs(config.power.sds_secs));
-#endif
             initialNodeInfoSent = true;
+            LOG_INFO("Initial NodeInfo flagged as sent; postponing radio-only sleep start until FSM retry");
         }
 
         shorterTimeout = false;
