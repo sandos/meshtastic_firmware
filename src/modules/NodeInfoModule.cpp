@@ -144,6 +144,11 @@ NodeInfoModule::NodeInfoModule()
                                          // after we start (to give network time to setup)
 }
 
+bool NodeInfoModule::hasSentInitialNodeInfo()
+{
+    return initialNodeInfoSent;
+}
+
 int32_t NodeInfoModule::runOnce()
 {
     // If we changed channels, ask everyone else for their latest info
