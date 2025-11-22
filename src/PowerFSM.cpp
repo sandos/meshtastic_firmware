@@ -18,6 +18,7 @@
 #include "main.h"
 #include "sleep.h"
 #include "target_specific.h"
+#include "modules/NodeInfoModule.h"
 
 #if HAS_WIFI && !defined(ARCH_PORTDUINO) || defined(MESHTASTIC_EXCLUDE_WIFI)
 #include "mesh/wifi/WiFiAPClient.h"
