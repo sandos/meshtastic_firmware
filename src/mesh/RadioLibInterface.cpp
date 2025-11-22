@@ -9,6 +9,7 @@
 #include "main.h"
 #include "mesh-pb-constants.h"
 #include "PowerFSM.h" // for radio-only sleep flag declaration
+#include "sleep.h"
 #include <pb_decode.h>
 #include <pb_encode.h>
 
