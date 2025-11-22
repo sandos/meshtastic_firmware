@@ -28,6 +28,12 @@
 bool g_radioOnlySleepActive = false;
 uint32_t g_radioOnlySleepEndMs = 0;
 
+// Fallback weak definitions for NodeInfo timing globals (overridden by strong defs in NodeInfoModule.cpp)
+extern bool g_nodeInfoInitialSent;        // declared in NodeInfoModule.h
+extern uint32_t g_nodeInfoFirstSendMs;    // declared in NodeInfoModule.h
+bool g_nodeInfoInitialSent __attribute__((weak)) = false;
+uint32_t g_nodeInfoFirstSendMs __attribute__((weak)) = 0;
+
 
 #ifndef SLEEP_TIME
 #define SLEEP_TIME 30
