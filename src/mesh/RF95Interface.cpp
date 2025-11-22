@@ -274,6 +274,7 @@ void RF95Interface::setStandby()
     disableInterrupt();
     completeSending(); // If we were sending, not anymore
     RadioLibInterface::setStandby();
+    LOG_INFO("RF95: setStandby completed, radio now in standby");
 }
 
 /** We override to turn on transmitter power as needed.
@@ -289,6 +290,7 @@ void RF95Interface::startReceive()
 {
     setTransmitEnable(false);
     setStandby();
+    LOG_INFO("RF95: startReceive invoked, enabling receive mode");
     int err = lora->startReceive();
     if (err != RADIOLIB_ERR_NONE)
         LOG_ERROR("RF95 startReceive %s%d", radioLibErr, err);

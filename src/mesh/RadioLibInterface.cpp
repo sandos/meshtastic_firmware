@@ -267,6 +267,7 @@ void RadioLibInterface::onNotify(uint32_t notification)
         setTransmitDelay();
         break;
     case TRANSMIT_DELAY_COMPLETED:
+        LOG_INFO("RadioIf: TRANSMIT_DELAY_COMPLETED fired, checking TX queue and sleep state");
 
         // If we are not currently in receive mode, then restart the random delay (this can happen if the main thread
         // has placed the unit into standby)  FIXME, how will this work if the chipset is in sleep mode?
@@ -289,6 +290,7 @@ void RadioLibInterface::onNotify(uint32_t notification)
                         // actual transmission as short as possible
                         txp = txQueue.dequeue();
                         assert(txp);
+                        LOG_INFO("RadioIf: dequeued packet for TX (id=0x%08x), about to startSend", txp->id);
                         startSend(txp);
                         LOG_DEBUG("%d packets remain in the TX queue", txQueue.getMaxLen() - txQueue.getFree());
                     }
@@ -540,10 +542,12 @@ bool RadioLibInterface::startSend(meshtastic_MeshPacket *txp)
         packetPool.release(txp);
         return false;
     } else {
+        LOG_INFO("RadioIf: startSend invoked (id=0x%08x), calling configHardwareForSend", txp->id);
         configHardwareForSend(); // must be after setStandby
 
         size_t numbytes = beginSending(txp);
 
+        LOG_INFO("RadioIf: calling iface->startTransmit for id=0x%08x, len=%u", txp->id, (unsigned)numbytes);
         int res = iface->startTransmit((uint8_t *)&radioBuffer, numbytes);
         if (res != RADIOLIB_ERR_NONE) {
             LOG_ERROR("startTransmit failed, error=%d", res);
