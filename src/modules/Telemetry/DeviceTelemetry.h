@@ -4,6 +4,7 @@
 #include "ProtobufModule.h"
 #include <OLEDDisplay.h>
 #include <OLEDDisplayUi.h>
+#include "sleep.h"
 
 class DeviceTelemetryModule : private concurrency::OSThread, public ProtobufModule<meshtastic_Telemetry>
 {
@@ -19,7 +20,11 @@ class DeviceTelemetryModule : private concurrency::OSThread, public ProtobufModu
         uptimeLastMs = millis();
         nodeStatusObserver.observe(&nodeStatus->onNewStatus);
         setIntervalFromNow(setStartDelay()); // Wait until NodeInfo is sent
+      // Observe radio wake to possibly resend telemetry immediately if we tried to send while sleeping
+      notifyRadioWakeObserver.observe(&notifyRadioWake);
     }
+    CallbackObserver<DeviceTelemetryModule, void *> notifyRadioWakeObserver =
+      CallbackObserver<DeviceTelemetryModule, void *>(this, &DeviceTelemetryModule::handleRadioWake);
     virtual bool wantUIFrame() { return false; }
 
   protected:
@@ -62,4 +67,6 @@ class DeviceTelemetryModule : private concurrency::OSThread, public ProtobufModu
 
     uint32_t uptimeWrapCount;
     uint32_t uptimeLastMs;
+    // Handle radio wake to re-send telemetry if outbound attempted during sleep
+    int handleRadioWake(void *unused = NULL);
 };

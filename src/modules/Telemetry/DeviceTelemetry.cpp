@@ -188,3 +188,25 @@ bool DeviceTelemetryModule::sendTelemetry(NodeNum dest, bool phoneOnly)
     }
     return true;
 }
+
+int DeviceTelemetryModule::handleRadioWake(void *unused)
+{
+    // On radio wake, evaluate our regular send conditions and, if allowed, send telemetry immediately.
+    refreshUptime();
+    bool isImpoliteRole = IS_ONE_OF(config.device.role, meshtastic_Config_DeviceConfig_Role_SENSOR,
+                                    meshtastic_Config_DeviceConfig_Role_ROUTER);
+
+    bool timeToSend = ((lastSentToMesh == 0) ||
+                       ((uptimeLastMs - lastSentToMesh) >=
+                        Default::getConfiguredOrDefaultMsScaled(moduleConfig.telemetry.device_update_interval,
+                                                                default_telemetry_broadcast_interval_secs,
+                                                                numOnlineNodes)));
+
+    if (timeToSend && airTime->isTxAllowedChannelUtil(!isImpoliteRole) && airTime->isTxAllowedAirUtil() &&
+        config.device.role != meshtastic_Config_DeviceConfig_Role_CLIENT_HIDDEN && moduleConfig.telemetry.device_telemetry_enabled) {
+        LOG_INFO("DeviceTelemetry: radio woke and send conditions met; sending telemetry immediately");
+        sendTelemetry();
+        lastSentToMesh = uptimeLastMs;
+    }
+    return 0;
+}
