@@ -36,7 +36,7 @@ PositionModule::PositionModule()
     if ((config.device.role == meshtastic_Config_DeviceConfig_Role_TRACKER ||
          config.device.role == meshtastic_Config_DeviceConfig_Role_TAK_TRACKER) &&
         config.power.is_power_saving) {
-        LOG_DEBUG("Clear position on startup for sleepy tracker (ー。ー) zzz");
+        LOG_DEBUG("Clear position on startup for power-saving tracker");
         nodeDB->clearLocalPosition();
     }
 }
@@ -338,13 +338,17 @@ void PositionModule::sendOurPosition()
 
     // If we changed channels, ask everyone else for their latest info
     LOG_INFO("Send pos@%x:6 to mesh (wantReplies=%d)", localPosition.timestamp, requestReplies);
+    LOG_DEBUG("sendOurPosition(): scanning channels for eligible precision");
     for (uint8_t channelNum = 0; channelNum < 8; channelNum++) {
         if (channels.getByIndex(channelNum).settings.has_module_settings &&
             channels.getByIndex(channelNum).settings.module_settings.position_precision != 0) {
+            LOG_DEBUG("sendOurPosition(): use channel %u precision=%u", channelNum,
+                      channels.getByIndex(channelNum).settings.module_settings.position_precision);
             sendOurPosition(NODENUM_BROADCAST, requestReplies, channelNum);
             return;
         }
     }
+    LOG_DEBUG("sendOurPosition(): no eligible channel found; not sending");
 }
 
 void PositionModule::sendOurPosition(NodeNum dest, bool wantReplies, uint8_t channel)
@@ -358,6 +362,7 @@ void PositionModule::sendOurPosition(NodeNum dest, bool wantReplies, uint8_t cha
         precision = channels.getByIndex(channel).settings.module_settings.position_precision;
     }
 
+    LOG_DEBUG("sendOurPosition(dest=%08x, wantReplies=%d, channel=%u)", dest, wantReplies, channel);
     meshtastic_MeshPacket *p = allocPositionPacket();
     if (p == nullptr) {
         LOG_DEBUG("allocPositionPacket returned a nullptr");
@@ -384,12 +389,12 @@ void PositionModule::sendOurPosition(NodeNum dest, bool wantReplies, uint8_t cha
         meshtastic_ClientNotification *notification = clientNotificationPool.allocZeroed();
         notification->level = meshtastic_LogRecord_Level_INFO;
         notification->time = getValidTime(RTCQualityFromNet);
-        sprintf(notification->message, "Sending position and sleeping for %us interval in a moment",
-                Default::getConfiguredOrDefaultMs(config.position.position_broadcast_secs, default_broadcast_interval_secs) /
-                    1000U);
+        // Hardcode deep sleep interval for trackers to 20 minutes (1200s)
+        sprintf(notification->message, "Sending position and sleeping for %us interval in a moment", 1200U);
         service->sendClientNotification(notification);
         sleepOnNextExecution = true;
-        LOG_DEBUG("Start next execution in 5s, then sleep");
+        LOG_DEBUG("Tracker power-saving: schedule sleep; next=5s, sleep_interval=%ums",
+                  (unsigned)(20u * 60u * 1000u));
         setIntervalFromNow(FIVE_SECONDS_MS);
     }
 }
@@ -400,8 +405,16 @@ int32_t PositionModule::runOnce()
 {
     if (sleepOnNextExecution == true) {
         sleepOnNextExecution = false;
-        uint32_t nightyNightMs = Default::getConfiguredOrDefaultMs(config.position.position_broadcast_secs);
-        LOG_DEBUG("Sleep for %ims, then awaking to send position again", nightyNightMs);
+        // Hardcode deep sleep interval to 20 minutes for tracker roles in power-saving
+        uint32_t nightyNightMs;
+        if ((config.device.role == meshtastic_Config_DeviceConfig_Role_TRACKER ||
+             config.device.role == meshtastic_Config_DeviceConfig_Role_TAK_TRACKER) &&
+            config.power.is_power_saving) {
+            nightyNightMs = 20u * 60u * 1000u; // 20 minutes
+        } else {
+            nightyNightMs = Default::getConfiguredOrDefaultMs(config.position.position_broadcast_secs);
+        }
+        LOG_DEBUG("Sleep for %ums, then wake to send position", nightyNightMs);
         doDeepSleep(nightyNightMs, false, false);
     }
 
@@ -414,14 +427,21 @@ int32_t PositionModule::runOnce()
     uint32_t intervalMs = Default::getConfiguredOrDefaultMsScaled(config.position.position_broadcast_secs,
                                                                   default_broadcast_interval_secs, numOnlineNodes);
     uint32_t msSinceLastSend = now - lastGpsSend;
+    bool trackerRole = (config.device.role == meshtastic_Config_DeviceConfig_Role_TRACKER ||
+                        config.device.role == meshtastic_Config_DeviceConfig_Role_TAK_TRACKER);
+    bool validPosNow = nodeDB->hasValidPosition(node);
+    LOG_DEBUG("runOnce(): tracker=%d power_saving=%d validPos=%d lastGpsSend=%u msSince=%u interval=%u",
+              trackerRole, config.power.is_power_saving, validPosNow, (unsigned)lastGpsSend, (unsigned)msSinceLastSend,
+              (unsigned)intervalMs);
     // Only send packets if the channel util. is less than 25% utilized or we're a tracker with less than 40% utilized.
     if (!airTime->isTxAllowedChannelUtil(config.device.role != meshtastic_Config_DeviceConfig_Role_TRACKER &&
                                          config.device.role != meshtastic_Config_DeviceConfig_Role_TAK_TRACKER)) {
+        LOG_DEBUG("runOnce(): skip send due to channel utilization guard");
         return RUNONCE_INTERVAL;
     }
 
     if (lastGpsSend == 0 || msSinceLastSend >= intervalMs) {
-        if (nodeDB->hasValidPosition(node)) {
+        if (validPosNow) {
             lastGpsSend = now;
 
             lastGpsLatitude = node->position.latitude_i;
@@ -431,6 +451,8 @@ int32_t PositionModule::runOnce()
             if (config.device.role == meshtastic_Config_DeviceConfig_Role_LOST_AND_FOUND) {
                 sendLostAndFoundText();
             }
+        } else {
+            LOG_DEBUG("runOnce(): not sending; no valid position available");
         }
     } else if (config.position.position_broadcast_smart_enabled) {
         const meshtastic_NodeInfoLite *node2 = service->refreshLocalMeshNode(); // should guarantee there is now a position
@@ -455,6 +477,8 @@ int32_t PositionModule::runOnce()
                 lastGpsLatitude = node->position.latitude_i;
                 lastGpsLongitude = node->position.longitude_i;
             }
+        } else {
+            LOG_DEBUG("runOnce(): smart broadcast enabled but position invalid; not sending");
         }
     }
 

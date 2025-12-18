@@ -1,5 +1,6 @@
 #include "PowerMon.h"
 #include "NodeDB.h"
+#include "PowerStatus.h"
 
 // Use the 'live' config flag to figure out if we should be showing this message
 bool PowerMon::is_power_enabled(uint64_t m)
@@ -36,6 +37,12 @@ void PowerMon::emitLog(const char *reason)
 #ifdef USE_POWERMON
     // The nrf52 printf doesn't understand 64 bit ints, so if we ever reach that point this function will need to change.
     LOG_INFO("S:PM:0x%08lx,%s", (uint32_t)states, reason);
+    // If this device is a tracker/sensor, emit role-specific telemetry to help debug one-shot sleep behavior
+    if (IS_ONE_OF(config.device.role, meshtastic_Config_DeviceConfig_Role_TRACKER,
+                  meshtastic_Config_DeviceConfig_Role_TAK_TRACKER, meshtastic_Config_DeviceConfig_Role_SENSOR)) {
+        LOG_INFO("S:PM:ROLE=TRACKER, states=0x%08lx, reason=%s, batt=%d%%", (uint32_t)states, reason,
+                 powerStatus ? powerStatus->getBatteryChargePercent() : -1);
+    }
 #endif
 }
 

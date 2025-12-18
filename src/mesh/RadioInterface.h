@@ -259,7 +259,16 @@ class RadioInterface
     void applyModemConfig();
 
     /// Return 0 if sleep is okay
-    int preflightSleepCb(void *unused = NULL) { return canSleep() ? 0 : 1; }
+    int preflightSleepCb(void *unused = NULL)
+    {
+        bool ok = canSleep();
+        if (!ok) {
+            meshtastic_QueueStatus qs = getQueueStatus();
+            LOG_DEBUG("Preflight veto from radio: canSleep=false (TX/RX busy or queue not empty) qs.res=%d qs.free=%d qs.maxlen=%d",
+                      qs.res, qs.free, qs.maxlen);
+        }
+        return ok ? 0 : 1;
+    }
 
     int notifyDeepSleepCb(void *unused = NULL);
 
