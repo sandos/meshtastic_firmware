@@ -384,12 +384,12 @@ void PositionModule::sendOurPosition(NodeNum dest, bool wantReplies, uint8_t cha
         meshtastic_ClientNotification *notification = clientNotificationPool.allocZeroed();
         notification->level = meshtastic_LogRecord_Level_INFO;
         notification->time = getValidTime(RTCQualityFromNet);
-        sprintf(notification->message, "Sending position and sleeping for %us interval in a moment",
-                Default::getConfiguredOrDefaultMs(config.position.position_broadcast_secs, default_broadcast_interval_secs) /
-                    1000U);
+        // Override tracker deep-sleep interval to 15 minutes (900s)
+        sprintf(notification->message, "Sending position and sleeping for %us interval in a moment", 900U);
         service->sendClientNotification(notification);
         sleepOnNextExecution = true;
-        LOG_DEBUG("Start next execution in 5s, then sleep");
+        LOG_DEBUG("Tracker power-saving: schedule sleep; next=5s, sleep_interval=%ums",
+                  (unsigned)(15u * 60u * 1000u));
         setIntervalFromNow(FIVE_SECONDS_MS);
     }
 }
@@ -400,8 +400,16 @@ int32_t PositionModule::runOnce()
 {
     if (sleepOnNextExecution == true) {
         sleepOnNextExecution = false;
-        uint32_t nightyNightMs = Default::getConfiguredOrDefaultMs(config.position.position_broadcast_secs);
-        LOG_DEBUG("Sleep for %ims, then awaking to send position again", nightyNightMs);
+        uint32_t nightyNightMs;
+        if ((config.device.role == meshtastic_Config_DeviceConfig_Role_TRACKER ||
+             config.device.role == meshtastic_Config_DeviceConfig_Role_TAK_TRACKER) &&
+            config.power.is_power_saving) {
+            nightyNightMs = 15u * 60u * 1000u; // 15 minutes
+            LOG_DEBUG("Override tracker sleep interval to 15m (%ums)", nightyNightMs);
+        } else {
+            nightyNightMs = Default::getConfiguredOrDefaultMs(config.position.position_broadcast_secs);
+        }
+        LOG_DEBUG("Sleep for %ums, then awaking to send position again", nightyNightMs);
         doDeepSleep(nightyNightMs, false, false);
     }
 

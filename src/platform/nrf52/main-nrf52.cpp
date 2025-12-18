@@ -317,6 +317,14 @@ void nrf52Setup()
 
 void cpuDeepSleep(uint32_t msecToWake)
 {
+    LOG_INFO("NRF52 deep sleep entry: msecToWake=%u", (unsigned)msecToWake);
+    bool trackerPowerSaving = (msecToWake != portMAX_DELAY &&
+                               (IS_ONE_OF(config.device.role, meshtastic_Config_DeviceConfig_Role_TRACKER,
+                                          meshtastic_Config_DeviceConfig_Role_TAK_TRACKER,
+                                          meshtastic_Config_DeviceConfig_Role_SENSOR)) &&
+                               config.power.is_power_saving == true);
+    LOG_DEBUG("NRF52 deep sleep context: role=%d power_saving=%d tracker_path=%d",
+              (int)config.device.role, (int)config.power.is_power_saving, (int)trackerPowerSaving);
     // FIXME, configure RTC or button press to wake us
     // FIXME, power down SPI, I2C, RAMs
 #if HAS_WIRE
@@ -410,14 +418,18 @@ void cpuDeepSleep(uint32_t msecToWake)
 
     // Sleepy trackers or sensors can low power "sleep"
     // Don't enter this if we're sleeping portMAX_DELAY, since that's a shutdown event
-    if (msecToWake != portMAX_DELAY &&
-        (IS_ONE_OF(config.device.role, meshtastic_Config_DeviceConfig_Role_TRACKER,
-                   meshtastic_Config_DeviceConfig_Role_TAK_TRACKER, meshtastic_Config_DeviceConfig_Role_SENSOR) &&
-         config.power.is_power_saving == true)) {
+    if (trackerPowerSaving) {
+        bool bleConnected = false;
+#ifdef ARCH_NRF52
+        bleConnected = nrf52Bluetooth != nullptr && nrf52Bluetooth->isConnected();
+#endif
+        LOG_INFO("NRF52 tracker low-power sleep: %ums (BLE connected=%d)", (unsigned)msecToWake, (int)bleConnected);
         sd_power_mode_set(NRF_POWER_MODE_LOWPWR);
         delay(msecToWake);
+        LOG_DEBUG("NRF52 tracker wake after delay, performing NVIC_SystemReset()");
         NVIC_SystemReset();
     } else {
+        LOG_INFO("NRF52 system-off path: configuring wake sources and entering system off");
         // Resume on user button press
         // https://github.com/lyusupov/SoftRF/blob/81c519ca75693b696752235d559e881f2e0511ee/software/firmware/source/SoftRF/src/platform/nRF52.cpp#L1738
         constexpr uint32_t DFU_MAGIC_SKIP = 0x6d;
@@ -442,6 +454,7 @@ void cpuDeepSleep(uint32_t msecToWake)
         nrf_gpio_cfg_input(BUTTON_PIN, NRF_GPIO_PIN_PULLUP); // Enable internal pull-up on the button pin
         nrf_gpio_pin_sense_t sense = NRF_GPIO_PIN_SENSE_LOW; // Configure SENSE signal on low edge
         nrf_gpio_cfg_sense_set(BUTTON_PIN, sense);           // Apply SENSE to wake up the device from the deep sleep
+    LOG_DEBUG("NRF52 system-off: configured BUTTON_PIN=%d for wake (sense=LOW)", (int)BUTTON_PIN);
 #endif
 
 #ifdef BATTERY_LPCOMP_INPUT
@@ -454,6 +467,9 @@ void cpuDeepSleep(uint32_t msecToWake)
         nrf_lpcomp_input_select(NRF_LPCOMP, BATTERY_LPCOMP_INPUT);
         nrf_lpcomp_enable(NRF_LPCOMP);
 
+    LOG_DEBUG("NRF52 system-off: LPCOMP wake configured (input=%d, threshold=%d, detect=UP)",
+          (int)BATTERY_LPCOMP_INPUT, (int)BATTERY_LPCOMP_THRESHOLD);
+
         battery_adcEnable();
 
         nrf_lpcomp_task_trigger(NRF_LPCOMP, NRF_LPCOMP_TASK_START);
@@ -461,6 +477,7 @@ void cpuDeepSleep(uint32_t msecToWake)
             ;
 #endif
 
+        LOG_INFO("NRF52 entering system off (sd_power_system_off)");
         auto ok = sd_power_system_off();
         if (ok != NRF_SUCCESS) {
             LOG_ERROR("FIXME: Ignoring soft device (EasyDMA pending?) and forcing system-off!");
