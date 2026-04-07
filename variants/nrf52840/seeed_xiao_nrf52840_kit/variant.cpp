@@ -1,12 +1,72 @@
 #include "variant.h"
 #include "configuration.h"
 #include "nrf.h"
+#include "nrf_gpio.h"
 #include "wiring_constants.h"
 #include "wiring_digital.h"
 #include <map>
 #include <memory>
 #include <stddef.h>
 #include <stdint.h>
+
+namespace
+{
+constexpr uint8_t FLASH_SCK_PIN = 21;
+constexpr uint8_t FLASH_CS_PIN = 25;
+constexpr uint8_t FLASH_IO0_PIN = 20;
+constexpr uint8_t FLASH_IO1_PIN = 24;
+constexpr uint8_t FLASH_IO2_PIN = 22;
+constexpr uint8_t FLASH_IO3_PIN = 23;
+constexpr uint8_t FLASH_DEEP_POWER_DOWN = 0xB9;
+
+inline void flashClockPulse()
+{
+  NRF_P0->OUTSET = 1UL << FLASH_SCK_PIN;
+  __NOP();
+  NRF_P0->OUTCLR = 1UL << FLASH_SCK_PIN;
+  __NOP();
+}
+
+void flashWriteByte(uint8_t value)
+{
+  for (uint8_t mask = 0x80; mask != 0; mask >>= 1) {
+    if (value & mask) {
+      NRF_P0->OUTSET = 1UL << FLASH_IO0_PIN;
+    } else {
+      NRF_P0->OUTCLR = 1UL << FLASH_IO0_PIN;
+    }
+    flashClockPulse();
+  }
+}
+
+void flashDeepPowerDown()
+{
+  nrf_gpio_cfg_output(FLASH_CS_PIN);
+  nrf_gpio_cfg_output(FLASH_SCK_PIN);
+  nrf_gpio_cfg_output(FLASH_IO0_PIN);
+  nrf_gpio_cfg_input(FLASH_IO1_PIN, NRF_GPIO_PIN_NOPULL);
+  nrf_gpio_cfg_output(FLASH_IO2_PIN);
+  nrf_gpio_cfg_output(FLASH_IO3_PIN);
+
+  NRF_P0->OUTSET = (1UL << FLASH_CS_PIN) | (1UL << FLASH_IO2_PIN) | (1UL << FLASH_IO3_PIN);
+  NRF_P0->OUTCLR = (1UL << FLASH_SCK_PIN) | (1UL << FLASH_IO0_PIN);
+
+  NRF_P0->OUTCLR = 1UL << FLASH_CS_PIN;
+  flashWriteByte(FLASH_DEEP_POWER_DOWN);
+  NRF_P0->OUTSET = 1UL << FLASH_CS_PIN;
+}
+
+void releaseFlashPins()
+{
+  nrf_gpio_cfg_default(FLASH_SCK_PIN);
+  nrf_gpio_cfg_default(FLASH_CS_PIN);
+  nrf_gpio_cfg_default(FLASH_IO0_PIN);
+  nrf_gpio_cfg_default(FLASH_IO1_PIN);
+  nrf_gpio_cfg_default(FLASH_IO2_PIN);
+  nrf_gpio_cfg_default(FLASH_IO3_PIN);
+}
+} // namespace
+
 const uint32_t g_ADigitalPinMap[] = {
     // D0 .. D13
     2,  // D0  is P0.02 (A0)
@@ -94,3 +154,9 @@ void initVariant()
     pinMode(PIN_LED3, OUTPUT);
     ledOff(PIN_LED3);
 }
+
+  void variant_shutdown()
+  {
+    flashDeepPowerDown();
+    releaseFlashPins();
+  }
